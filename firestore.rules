@@ -5,7 +5,7 @@ service cloud.firestore {
     // n8n usa una cuenta de servicio y no pasa por estas reglas.
     match /reservas/{id} {
       allow read, write: if request.auth != null
-        && request.auth.token.email == 'barbero@ejemplo.com';   // <- cambia por el correo del barbero
+        && request.auth.token.email == 'admin@admin.cl';   // correo del barbero
     }
     match /{document=**} { allow read, write: if false; }
   }
