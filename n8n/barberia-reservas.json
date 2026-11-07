@@ -56,7 +56,7 @@
             {
               "id": "bded22a1-30a9-49ff-b693-ab5b8a76e354",
               "name": "zonaHoraria",
-              "value": "America/Mexico_City",
+              "value": "America/Santiago",
               "type": "string"
             },
             {
@@ -816,7 +816,7 @@
             {
               "id": "bf27ddd2-2216-4f2f-8af6-b2160d9d06a9",
               "name": "zonaHoraria",
-              "value": "America/Mexico_City",
+              "value": "America/Santiago",
               "type": "string"
             },
             {
@@ -1371,7 +1371,7 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Mexico_City",
+    "timezone": "America/Santiago",
     "callerPolicy": "workflowsFromSameOwner"
   },
   "meta": {
