@@ -298,7 +298,7 @@
         "model": {
           "__rl": true,
           "mode": "id",
-          "value": "claude-sonnet-5-5"
+          "value": "claude-haiku-4-5"
         },
         "options": {
           "maxTokensToSample": 4096
