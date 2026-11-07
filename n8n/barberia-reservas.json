@@ -3,23 +3,6 @@
   "nodes": [
     {
       "parameters": {
-        "updates": [
-          "messages"
-        ],
-        "options": {}
-      },
-      "id": "93106532-2c73-4215-8cd6-faaf023b99c0",
-      "name": "WhatsApp Trigger",
-      "type": "n8n-nodes-base.whatsAppTrigger",
-      "typeVersion": 1,
-      "position": [
-        0,
-        400
-      ],
-      "webhookId": "8fd5ad24-df1e-4b80-ad67-0e563b1b8359"
-    },
-    {
-      "parameters": {
         "mode": "manual",
         "assignments": {
           "assignments": [
@@ -123,7 +106,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Un item limpio por mensaje de WhatsApp. Las notificaciones de estado (enviado, entregado, leído) se descartan aquí.\nconst out = [];\n$input.all().forEach((item, index) => {\n  const raw = item.json;\n  const v = raw.messages ? raw : (raw.entry?.[0]?.changes?.[0]?.value ?? raw);\n  const msg = v.messages?.[0];\n  if (!msg) return;\n\n  const contacto = v.contacts?.[0] ?? {};\n  let tipo = msg.type;\n  let texto = '';\n  let eleccion = null;\n\n  if (msg.type === 'text') texto = msg.text?.body ?? '';\n  else if (msg.type === 'interactive') {\n    const r = msg.interactive?.button_reply ?? msg.interactive?.list_reply ?? {};\n    texto = r.title ?? '';\n    // los botones de horario llevan la reserva en su id: {\"i\": inicio, \"n\": nombre, \"s\": servicio}\n    try {\n      const p = JSON.parse(r.id);\n      if (p && p.i) { eleccion = p; tipo = 'eleccion'; }\n    } catch (e) {}\n  } else if (msg.type === 'button') {\n    // respuesta rápida a la plantilla: la única con botones es el recordatorio de la reserva\n    texto = `${msg.button?.text ?? ''} (respuesta al recordatorio de su reserva de mañana)`;\n  } else texto = `[El cliente envió un mensaje de tipo \"${msg.type}\" que no se puede leer: pídele con amabilidad que lo escriba]`;\n\n  out.push({\n    json: {\n      tipo,\n      texto,\n      telefono: msg.from,\n      nombre: eleccion?.n || contacto.profile?.name || '',\n            mensajeId: msg.id,\n      phoneNumberId: v.metadata?.phone_number_id,\n      // solo si tocó un botón de horario\n      inicio: eleccion?.i ?? null,\n      servicio: eleccion?.s ?? '',\n    },\n    pairedItem: { item: index },\n  });\n});\nreturn out;"
+        "jsCode": "// Un item limpio por mensaje de WhatsApp. Las notificaciones de estado (enviado, entregado, leído) se descartan aquí.\nconst out = [];\n$input.all().forEach((item, index) => {\n  const raw = item.json.body ?? item.json;\n  const v = raw.messages ? raw : (raw.entry?.[0]?.changes?.[0]?.value ?? raw);\n  const msg = v.messages?.[0];\n  if (!msg) return;\n\n  const contacto = v.contacts?.[0] ?? {};\n  let tipo = msg.type;\n  let texto = '';\n  let eleccion = null;\n\n  if (msg.type === 'text') texto = msg.text?.body ?? '';\n  else if (msg.type === 'interactive') {\n    const r = msg.interactive?.button_reply ?? msg.interactive?.list_reply ?? {};\n    texto = r.title ?? '';\n    // los botones de horario llevan la reserva en su id: {\"i\": inicio, \"n\": nombre, \"s\": servicio}\n    try {\n      const p = JSON.parse(r.id);\n      if (p && p.i) { eleccion = p; tipo = 'eleccion'; }\n    } catch (e) {}\n  } else if (msg.type === 'button') {\n    // respuesta rápida a la plantilla: la única con botones es el recordatorio de la reserva\n    texto = `${msg.button?.text ?? ''} (respuesta al recordatorio de su reserva de mañana)`;\n  } else texto = `[El cliente envió un mensaje de tipo \"${msg.type}\" que no se puede leer: pídele con amabilidad que lo escriba]`;\n\n  out.push({\n    json: {\n      tipo,\n      texto,\n      telefono: msg.from,\n      nombre: eleccion?.n || contacto.profile?.name || '',\n            mensajeId: msg.id,\n      phoneNumberId: v.metadata?.phone_number_id,\n      // solo si tocó un botón de horario\n      inicio: eleccion?.i ?? null,\n      servicio: eleccion?.s ?? '',\n    },\n    pairedItem: { item: index },\n  });\n});\nreturn out;"
       },
       "id": "7d4d0eae-97e1-47f1-a9b8-729a280f3dc2",
       "name": "Lee el mensaje",
@@ -895,7 +878,7 @@
     },
     {
       "parameters": {
-        "content": "## Antes de activar\n1. Llena **Datos de la barbería** (projectId de Firebase, horarioSemana, duración, teléfono del barbero) y **Datos de la barbería (mañana)**.\n2. Credenciales: WhatsApp API de Meta (nodos WhatsApp y HTTP Request de botones), WhatsApp OAuth (trigger), Anthropic (Claude) y **Google Service Account** con el scope https://www.googleapis.com/auth/datastore en *Disponibilidad*, *Crea la reserva* y *Reservas de mañana*.\n3. La colección debe usar estos campos: nombre, telefono, servicio, inicio (timestamp), fin (timestamp), estado, origen, creada. Ajusta los nombres si tu base usa otros.\n4. Crea y aprueba en Meta las plantillas *aviso_barbero* y *recordatorio_cita* (textos en el README).\n5. Publica el flujo (**Publish**).",
+        "content": "## Antes de activar\n1. Llena **Datos de la barbería** (projectId de Firebase, horarioSemana, duración, teléfono del barbero) y **Datos de la barbería (mañana)**.\n2. Credenciales: WhatsApp API de Meta (nodos WhatsApp y HTTP Request de botones), Anthropic (Claude) y **Google Service Account** con el scope https://www.googleapis.com/auth/datastore en *Disponibilidad*, *Crea la reserva* y *Reservas de mañana*.\n3. La colección debe usar estos campos: nombre, telefono, servicio, inicio (timestamp), fin (timestamp), estado, origen, creada. Ajusta los nombres si tu base usa otros.\n4. Crea y aprueba en Meta las plantillas *aviso_barbero* y *recordatorio_cita* (textos en el README).\n5. En Meta > Configurar webhooks pega la Production URL de *Webhook mensajes* (la misma sirve para la verificación). 6. Publica el flujo (**Publish**).",
         "height": 460,
         "width": 1000,
         "color": 7
@@ -908,20 +891,57 @@
         -80,
         -420
       ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "barberia-wsp",
+        "options": {}
+      },
+      "id": "15bb14c7-26e2-4bbd-9338-aa2cc9c32edf",
+      "name": "Webhook mensajes",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "acaea5fe-8820-47b9-98ed-4853b598c46f"
+    },
+    {
+      "parameters": {
+        "path": "barberia-wsp",
+        "responseMode": "responseNode",
+        "options": {},
+        "httpMethod": "GET"
+      },
+      "id": "56a00891-c214-4807-a5f8-fd9fd87ad198",
+      "name": "Webhook verificación",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -100
+      ],
+      "webhookId": "aa41b4c7-a5af-49d9-ad79-5e0df9dec3b0"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {}
+      },
+      "id": "e5c0f7d0-93b5-450a-bb48-95dc843e5d48",
+      "name": "Responde a Meta",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        -100
+      ]
     }
   ],
   "connections": {
-    "WhatsApp Trigger": {
-      "main": [
-        [
-          {
-            "node": "Datos de la barbería",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Datos de la barbería": {
       "main": [
         [
@@ -1214,6 +1234,28 @@
         [
           {
             "node": "Envía recordatorio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook mensajes": {
+      "main": [
+        [
+          {
+            "node": "Datos de la barbería",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook verificación": {
+      "main": [
+        [
+          {
+            "node": "Responde a Meta",
             "type": "main",
             "index": 0
           }
