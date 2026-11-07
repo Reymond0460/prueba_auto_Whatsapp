@@ -98,7 +98,7 @@
             {
               "id": "b0f17320-5df0-4e46-b21b-9a23526331f1",
               "name": "projectId",
-              "value": "TU_PROJECT_ID_DE_FIREBASE",
+              "value": "prueba-auto-whatsapp",
               "type": "string"
             },
             {
@@ -828,7 +828,7 @@
             {
               "id": "95c83833-3694-457d-b998-ce5481cf5ee8",
               "name": "projectId",
-              "value": "TU_PROJECT_ID_DE_FIREBASE",
+              "value": "prueba-auto-whatsapp",
               "type": "string"
             },
             {
