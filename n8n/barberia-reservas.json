@@ -316,7 +316,7 @@
     {
       "parameters": {
         "sessionIdType": "customKey",
-        "sessionKey": "={{ $('Lee el mensaje').item.json.telefono }}",
+        "sessionKey": "={{ $('Lee el mensaje').first().json.telefono }}",
         "contextWindowLength": 12
       },
       "id": "33ceecc6-8d49-4020-8023-d905ecc49760",
@@ -366,7 +366,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Convierte la respuesta del agente en lo que necesita WhatsApp, más el contexto de la conversación.\nconst ctx = $('Lee el mensaje').item.json;\nconst o = $json.output ?? {};\n// Si el agente falló (API caída, sin créditos...): responde con cortesía y avisa al barbero.\nconst fallo = !$json.output;\nconst corta = (s, n) => String(s ?? '').replace(/\\s+/g, ' ').trim().slice(0, n);\n\nlet original = ctx.texto;\ntry { original = $('Transcribe audio').item.json.text || original; } catch (e) {}\n\nconst nombre = corta(o.nombre_cliente || ctx.nombre, 40);\nconst servicio = corta(o.servicio, 40);\n\n// Botones de respuesta de WhatsApp: máx. 3, títulos únicos de hasta 20 caracteres, ids de hasta 256\nconst vistos = new Set();\nconst botones = (Array.isArray(o.botones) ? o.botones : [])\n  .filter((b) => b && b.inicio && b.titulo && !vistos.has(corta(b.titulo, 20)) && vistos.add(corta(b.titulo, 20)))\n  .slice(0, 3)\n  .map((b) => ({\n    type: 'reply',\n    reply: { id: JSON.stringify({ i: b.inicio, n: nombre, s: servicio }).slice(0, 256), title: corta(b.titulo, 20) },\n  }));\n\nlet accion = fallo ? 'derivar' : o.accion || 'responder';\nif (accion === 'ofrecer_horarios' && botones.length === 0) accion = 'responder';\nif (accion === 'reservar' && !DateTime.fromISO(String(o.cita_inicio ?? '')).isValid) accion = 'responder';\n\nreturn {\n  json: {\n    accion,\n    respuesta: o.respuesta || 'Gracias por escribir 🙏 En cuanto pueda, el barbero te responde por aquí.',\n    botones,\n    nombre,\n    servicio,\n    inicio: o.cita_inicio ?? null,\n    telefono: ctx.telefono,\n    phoneNumberId: ctx.phoneNumberId,\n    mensajeOriginal: corta(original, 180),\n  },\n};"
+        "jsCode": "// Convierte la respuesta del agente en lo que necesita WhatsApp, más el contexto de la conversación.\nconst ctx = $('Lee el mensaje').first().json;\nconst o = $json.output ?? {};\n// Si el agente falló (API caída, sin créditos...): responde con cortesía y avisa al barbero.\nconst fallo = !$json.output;\nconst corta = (s, n) => String(s ?? '').replace(/\\s+/g, ' ').trim().slice(0, n);\n\nlet original = ctx.texto;\ntry { original = $('Transcribe audio').first().json.text || original; } catch (e) {}\n\nconst nombre = corta(o.nombre_cliente || ctx.nombre, 40);\nconst servicio = corta(o.servicio, 40);\n\n// Botones de respuesta de WhatsApp: máx. 3, títulos únicos de hasta 20 caracteres, ids de hasta 256\nconst vistos = new Set();\nconst botones = (Array.isArray(o.botones) ? o.botones : [])\n  .filter((b) => b && b.inicio && b.titulo && !vistos.has(corta(b.titulo, 20)) && vistos.add(corta(b.titulo, 20)))\n  .slice(0, 3)\n  .map((b) => ({\n    type: 'reply',\n    reply: { id: JSON.stringify({ i: b.inicio, n: nombre, s: servicio }).slice(0, 256), title: corta(b.titulo, 20) },\n  }));\n\nlet accion = fallo ? 'derivar' : o.accion || 'responder';\nif (accion === 'ofrecer_horarios' && botones.length === 0) accion = 'responder';\nif (accion === 'reservar' && !DateTime.fromISO(String(o.cita_inicio ?? '')).isValid) accion = 'responder';\n\nreturn {\n  json: {\n    accion,\n    respuesta: o.respuesta || 'Gracias por escribir 🙏 En cuanto pueda, el barbero te responde por aquí.',\n    botones,\n    nombre,\n    servicio,\n    inicio: o.cita_inicio ?? null,\n    telefono: ctx.telefono,\n    phoneNumberId: ctx.phoneNumberId,\n    mensajeOriginal: corta(original, 180),\n  },\n};"
       },
       "id": "e17373b7-b93a-4bd2-a1ed-d23d8ef2b9f9",
       "name": "Prepara la respuesta",
@@ -764,7 +764,7 @@
     {
       "parameters": {
         "sessionIdType": "customKey",
-        "sessionKey": "={{ $('Datos de la cita').item.json.telefono }}",
+        "sessionKey": "={{ $('Datos de la cita').first().json.telefono }}",
         "contextWindowLength": 12
       },
       "id": "83723735-1b31-4fab-914e-242c17567789",
