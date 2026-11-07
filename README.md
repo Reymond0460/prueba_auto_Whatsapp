@@ -39,7 +39,7 @@ No hay web pública de reservas: el cliente reserva solo por WhatsApp. (El model
 
 ### C. n8n
 1. Importa `n8n/barberia-reservas.json` (n8n 2.46+, con HTTPS).
-2. Credenciales: WhatsApp API (token), WhatsApp OAuth (trigger), Anthropic, OpenAI (solo audios), **Google Service Account API** con scope `https://www.googleapis.com/auth/datastore` y la clave del paso A.7 (úsala en *Disponibilidad*, *Crea la reserva* y *Reservas de mañana*).
+2. Credenciales: WhatsApp API (token), WhatsApp OAuth (trigger), Anthropic, **Google Service Account API** con scope `https://www.googleapis.com/auth/datastore` y la clave del paso A.7 (úsala en *Disponibilidad*, *Crea la reserva* y *Reservas de mañana*).
 3. Edita **Datos de la barbería** (`projectId`, nombre, barbero, dirección, coordenadas, `horarioSemana`, `duracionMinutos`, servicios, `telefonoBarbero`) y **Datos de la barbería (mañana)** (incluye `phoneNumberId`).
 4. **Publish.**
 
