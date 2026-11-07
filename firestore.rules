@@ -1,0 +1,12 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Solo el barbero (cuenta creada a mano en Authentication) lee y escribe desde el panel.
+    // n8n usa una cuenta de servicio y no pasa por estas reglas.
+    match /reservas/{id} {
+      allow read, write: if request.auth != null
+        && request.auth.token.email == 'barbero@ejemplo.com';   // <- cambia por el correo del barbero
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

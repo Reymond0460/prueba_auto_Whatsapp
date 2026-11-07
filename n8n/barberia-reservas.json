@@ -1,0 +1,1381 @@
+{
+  "name": "Recepcionista IA · Barbería (WhatsApp + Firebase)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "id": "93106532-2c73-4215-8cd6-faaf023b99c0",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ],
+      "webhookId": "8fd5ad24-df1e-4b80-ad67-0e563b1b8359"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "348cd000-450f-4e2d-9813-b3b0cd257adb",
+              "name": "barberia",
+              "value": "Barbería Ejemplo",
+              "type": "string"
+            },
+            {
+              "id": "39ebc21f-c157-41f6-8a95-5197213a996d",
+              "name": "barbero",
+              "value": "Carlos",
+              "type": "string"
+            },
+            {
+              "id": "28cf8d09-79b6-4b8c-b436-4f4f0ec522fa",
+              "name": "direccion",
+              "value": "Av. Ejemplo 123, Tu ciudad",
+              "type": "string"
+            },
+            {
+              "id": "2a67c799-a8b5-43d4-bb91-4432fe4065a7",
+              "name": "latitud",
+              "value": 19.4326,
+              "type": "number"
+            },
+            {
+              "id": "bf55a238-c9c4-4880-9347-91d6a2478566",
+              "name": "longitud",
+              "value": -99.1332,
+              "type": "number"
+            },
+            {
+              "id": "bded22a1-30a9-49ff-b693-ab5b8a76e354",
+              "name": "zonaHoraria",
+              "value": "America/Mexico_City",
+              "type": "string"
+            },
+            {
+              "id": "126b5a3b-34e1-48a2-ae6c-145ee44a772d",
+              "name": "horario",
+              "value": "Lunes a viernes de 10:00 a 20:00 y sábados de 10:00 a 16:00. Domingos cerrado.",
+              "type": "string"
+            },
+            {
+              "id": "ca879e2c-aa9f-40a1-b48b-c2ddcad2af57",
+              "name": "horarioSemana",
+              "value": "{\"1\":[\"10:00\",\"20:00\"],\"2\":[\"10:00\",\"20:00\"],\"3\":[\"10:00\",\"20:00\"],\"4\":[\"10:00\",\"20:00\"],\"5\":[\"10:00\",\"20:00\"],\"6\":[\"10:00\",\"16:00\"],\"7\":null}",
+              "type": "string"
+            },
+            {
+              "id": "c177ad66-6d0e-4582-af42-d2b10d5f3449",
+              "name": "duracionMinutos",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "e82bf2ba-e3c2-4118-b88c-4d0687c52469",
+              "name": "servicios",
+              "value": "Corte $10 USD; Barba $6 USD; Corte + barba $14 USD. (Ejemplo: pon los tuyos y tu moneda.)",
+              "type": "string"
+            },
+            {
+              "id": "55cd04d4-bad7-4011-a0de-9fecb0ed6a20",
+              "name": "telefonoBarbero",
+              "value": "5215500000000",
+              "type": "string"
+            },
+            {
+              "id": "e1d711a7-7024-4ce9-86ce-46b53328443b",
+              "name": "idiomaPlantillas",
+              "value": "es",
+              "type": "string"
+            },
+            {
+              "id": "b0f17320-5df0-4e46-b21b-9a23526331f1",
+              "name": "projectId",
+              "value": "TU_PROJECT_ID_DE_FIREBASE",
+              "type": "string"
+            },
+            {
+              "id": "2916a9c6-5d27-46a7-8598-43d8538d420b",
+              "name": "coleccion",
+              "value": "reservas",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "f70a4c2f-f98c-45b4-9998-430af533eb23",
+      "name": "Datos de la barbería",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Un item limpio por mensaje de WhatsApp. Las notificaciones de estado (enviado, entregado, leído) se descartan aquí.\nconst out = [];\n$input.all().forEach((item, index) => {\n  const raw = item.json;\n  const v = raw.messages ? raw : (raw.entry?.[0]?.changes?.[0]?.value ?? raw);\n  const msg = v.messages?.[0];\n  if (!msg) return;\n\n  const contacto = v.contacts?.[0] ?? {};\n  let tipo = msg.type;\n  let texto = '';\n  let eleccion = null;\n\n  if (msg.type === 'text') texto = msg.text?.body ?? '';\n  else if (msg.type === 'interactive') {\n    const r = msg.interactive?.button_reply ?? msg.interactive?.list_reply ?? {};\n    texto = r.title ?? '';\n    // los botones de horario llevan la reserva en su id: {\"i\": inicio, \"n\": nombre, \"s\": servicio}\n    try {\n      const p = JSON.parse(r.id);\n      if (p && p.i) { eleccion = p; tipo = 'eleccion'; }\n    } catch (e) {}\n  } else if (msg.type === 'button') {\n    // respuesta rápida a la plantilla: la única con botones es el recordatorio de la reserva\n    texto = `${msg.button?.text ?? ''} (respuesta al recordatorio de su reserva de mañana)`;\n  } else if (msg.type !== 'audio') texto = `[El cliente envió un mensaje de tipo \"${msg.type}\" que no se puede leer]`;\n\n  out.push({\n    json: {\n      tipo,\n      texto,\n      telefono: msg.from,\n      nombre: eleccion?.n || contacto.profile?.name || '',\n      audioId: msg.audio?.id ?? null,\n      mensajeId: msg.id,\n      phoneNumberId: v.metadata?.phone_number_id,\n      // solo si tocó un botón de horario\n      inicio: eleccion?.i ?? null,\n      servicio: eleccion?.s ?? '',\n    },\n    pairedItem: { item: index },\n  });\n});\nreturn out;"
+      },
+      "id": "7d4d0eae-97e1-47f1-a9b8-729a280f3dc2",
+      "name": "Lee el mensaje",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6ab6ad38-a8c7-4b48-a5a5-81218d7b53b6",
+                    "leftValue": "={{ $json.tipo }}",
+                    "rightValue": "eleccion",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Eligió horario"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1d89e5c4-5425-43eb-a28b-f2346dec277b",
+                    "leftValue": "={{ $json.tipo }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Texto"
+        }
+      },
+      "id": "159778d2-0558-4501-802e-8d29e9474d55",
+      "name": "Tipo de mensaje",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        660,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $json.audioId }}"
+      },
+      "id": "c38b95e1-5057-4412-b741-9cfe1ebbee0a",
+      "name": "Obtén el audio",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "ff788e2a-26c8-441b-a491-fb0bf3fa02bf",
+      "name": "Descarga el audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Whisper detects the format from the file extension, and WhatsApp's download has none.\n// Voice notes arrive as OGG; attached audio files can be MP3, M4A, WAV or WEBM.\nconst extensiones = {\n  'audio/ogg': 'ogg', 'audio/opus': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3',\n  'audio/mp4': 'm4a', 'audio/m4a': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'm4a',\n  'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/webm': 'webm',\n};\nfor (const item of $input.all()) {\n  const audio = item.binary?.data;\n  if (!audio) continue;\n  const tipo = String(audio.mimeType ?? '').split(';')[0].trim().toLowerCase();\n  const ext = extensiones[tipo] ?? 'ogg';\n  audio.fileName = `nota-de-voz.${ext}`;\n  audio.fileExtension = ext;\n}\nreturn $input.all();"
+      },
+      "id": "a1f8cc22-22d0-4845-9487-ac481df69a32",
+      "name": "Nombra el audio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "binaryPropertyName": "data",
+        "options": {
+          "language": "es"
+        }
+      },
+      "id": "a58a196e-fff7-43fa-85f8-501a1c91fb04",
+      "name": "Transcribe audio",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        1460,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Fecha y hora actual en la barbería: {{ $now.setZone($('Datos de la barbería').first().json.zonaHoraria).setLocale('es').toFormat(\"cccc d 'de' LLLL 'de' yyyy, HH:mm\") }}\nCliente: {{ $('Lee el mensaje').item.json.nombre || 'sin nombre' }} (WhatsApp +{{ $('Lee el mensaje').item.json.telefono }})\nMensaje{{ $('Lee el mensaje').item.json.tipo === 'audio' ? ' (nota de voz transcrita)' : '' }}: {{ $('Lee el mensaje').item.json.tipo === 'audio' ? ($json.text || '[No se pudo escuchar la nota de voz: pídele con amabilidad que la escriba]') : $('Lee el mensaje').item.json.texto }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Eres la recepcionista virtual de {{ $('Datos de la barbería').first().json.barberia }}, una barbería. Atiendes por WhatsApp a cualquier hora, también de noche y en fines de semana, cuando la barbería está cerrada. Tu único trabajo es ayudar a reservar una hora.\n\nDatos de la barbería\n- Barbero: {{ $('Datos de la barbería').first().json.barbero }}\n- Dirección: {{ $('Datos de la barbería').first().json.direccion }}\n- Horario de atención: {{ $('Datos de la barbería').first().json.horario }}\n- Horario en formato máquina (día de la semana 1=lunes … 7=domingo → [apertura, cierre]; null = cerrado): {{ $('Datos de la barbería').first().json.horarioSemana }}\n- Zona horaria: {{ $('Datos de la barbería').first().json.zonaHoraria }}\n- Cada reserva dura {{ $('Datos de la barbería').first().json.duracionMinutos }} minutos. Los horarios empiezan en punto o cada {{ $('Datos de la barbería').first().json.duracionMinutos }} minutos desde la apertura, y la reserva debe terminar antes del cierre.\n- Servicios y precios de referencia: {{ $('Datos de la barbería').first().json.servicios }}\n\nCómo reservar\n1. Entiende qué quiere la persona, aunque escriba informal o con errores. Los audios te llegan ya transcritos.\n2. Pide el nombre y el servicio si todavía no los sabes, antes de ofrecer horarios.\n3. Cuando sepas para qué día quiere (si no lo dice, propón hoy o mañana), usa la herramienta \"Disponibilidad\" con el rango de ese día (de las 00:00 a las 23:59 hora local, en ISO 8601 con zona horaria). Te devuelve las reservas YA TOMADAS (ignora las que tengan estado \"cancelada\"). Un horario está libre si está dentro del horario de atención, no choca con ninguna reserva tomada y no está en el pasado.\n4. Ofrece 2 o 3 horarios libres con accion=\"ofrecer_horarios\" y botones. Si no hay nada libre ese día, dilo y ofrece el siguiente día con horarios.\n5. Si la persona escribe la hora que quiere en vez de tocar un botón, vuelve a revisar con \"Disponibilidad\" que siga libre y responde con accion=\"reservar\" y cita_inicio. Si no está libre, ofrece otras.\n6. Si en la conversación ya quedó reservada una hora, no vuelvas a ofrecer horarios salvo que pida otra reserva.\n7. Si la persona responde al recordatorio de su reserva: si confirma, agradécele y dile que la esperan; si quiere cambiar la hora, usa accion=\"derivar\".\n\nLímites\n- Por ahora solo se puede RESERVAR por aquí. Si piden cambiar o cancelar una reserva, o algo que no puedes resolver, usa accion=\"derivar\" y diles que el barbero les confirma en cuanto pueda.\n- No inventes precios, servicios ni horarios que no estén en los datos de la barbería.\n\nEstilo: como un mensaje de WhatsApp. Breve (máximo 3 frases), cercano, en español neutro, sin formato markdown y con un emoji como máximo.\n\nCampos de tu respuesta\n- respuesta: el mensaje para la persona.\n- accion: \"responder\", \"ofrecer_horarios\" (con botones), \"reservar\" o \"derivar\".\n- botones: solo con accion=\"ofrecer_horarios\". De 2 a 3 objetos con titulo (máximo 20 caracteres y distintos entre sí, por ejemplo \"Mié 5 · 09:30\") e inicio (fecha y hora ISO 8601 con la zona horaria de la barbería, por ejemplo 2026-11-05T09:30:00-06:00).\n- nombre_cliente: el nombre, si lo sabes.\n- servicio: el servicio que pidió, en 1 a 4 palabras.\n- cita_inicio: solo con accion=\"reservar\", en ISO 8601 con zona horaria.",
+          "maxIterations": 6
+        }
+      },
+      "id": "8c83fc64-e900-43c8-bdf6-cc04ec6396f3",
+      "name": "Recepcionista IA",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1820,
+        400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "claude-sonnet-5-5"
+        },
+        "options": {
+          "maxTokensToSample": 4096
+        }
+      },
+      "id": "271ec2bb-4288-4dbf-8312-5a6d8ac09c74",
+      "name": "Claude",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        1660,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Lee el mensaje').item.json.telefono }}",
+        "contextWindowLength": 12
+      },
+      "id": "33ceecc6-8d49-4020-8023-d905ecc49760",
+      "name": "Memoria",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        1820,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Devuelve las reservas YA TOMADAS (campo inicio y estado) en la base de datos entre 'desde' y 'hasta'. Cada reserva dura el tiempo configurado. Úsala siempre antes de ofrecer o confirmar horarios. Si devuelve vacío, no hay nada tomado.",
+        "method": "POST",
+        "url": "=https://firestore.googleapis.com/v1/projects/{{ $('Datos de la barbería').first().json.projectId }}/databases/(default)/documents:runQuery",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ structuredQuery: { from: [{ collectionId: $('Datos de la barbería').first().json.coleccion }], select: { fields: [{ fieldPath: 'inicio' }, { fieldPath: 'estado' }] }, where: { compositeFilter: { op: 'AND', filters: [{ fieldFilter: { field: { fieldPath: 'inicio' }, op: 'GREATER_THAN_OR_EQUAL', value: { timestampValue: $fromAI('desde', 'Inicio del rango a revisar (00:00 del día), ISO 8601 con zona horaria', 'string') } } }, { fieldFilter: { field: { fieldPath: 'inicio' }, op: 'LESS_THAN_OR_EQUAL', value: { timestampValue: $fromAI('hasta', 'Fin del rango a revisar (23:59 del día), ISO 8601 con zona horaria', 'string') } } }] } }, orderBy: [{ field: { fieldPath: 'inicio' }, direction: 'ASCENDING' }] } }) }}",
+        "options": {}
+      },
+      "id": "9fe16c8a-b602-4dd1-81d0-5b1a9d8a274c",
+      "name": "Disponibilidad",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"respuesta\": {\n      \"type\": \"string\",\n      \"description\": \"Mensaje de WhatsApp para la persona\"\n    },\n    \"accion\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"responder\",\n        \"ofrecer_horarios\",\n        \"reservar\",\n        \"derivar\"\n      ]\n    },\n    \"botones\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"titulo\": {\n            \"type\": \"string\"\n          },\n          \"inicio\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"titulo\",\n          \"inicio\"\n        ]\n      }\n    },\n    \"nombre_cliente\": {\n      \"type\": \"string\"\n    },\n    \"servicio\": {\n      \"type\": \"string\"\n    },\n    \"cita_inicio\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"respuesta\",\n    \"accion\"\n  ]\n}"
+      },
+      "id": "3a753dc1-8fee-4dd4-84e9-7462948203c9",
+      "name": "Formato de respuesta",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2140,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Convierte la respuesta del agente en lo que necesita WhatsApp, más el contexto de la conversación.\nconst ctx = $('Lee el mensaje').item.json;\nconst o = $json.output ?? {};\n// Si el agente falló (API caída, sin créditos...): responde con cortesía y avisa al barbero.\nconst fallo = !$json.output;\nconst corta = (s, n) => String(s ?? '').replace(/\\s+/g, ' ').trim().slice(0, n);\n\nlet original = ctx.texto;\ntry { original = $('Transcribe audio').item.json.text || original; } catch (e) {}\n\nconst nombre = corta(o.nombre_cliente || ctx.nombre, 40);\nconst servicio = corta(o.servicio, 40);\n\n// Botones de respuesta de WhatsApp: máx. 3, títulos únicos de hasta 20 caracteres, ids de hasta 256\nconst vistos = new Set();\nconst botones = (Array.isArray(o.botones) ? o.botones : [])\n  .filter((b) => b && b.inicio && b.titulo && !vistos.has(corta(b.titulo, 20)) && vistos.add(corta(b.titulo, 20)))\n  .slice(0, 3)\n  .map((b) => ({\n    type: 'reply',\n    reply: { id: JSON.stringify({ i: b.inicio, n: nombre, s: servicio }).slice(0, 256), title: corta(b.titulo, 20) },\n  }));\n\nlet accion = fallo ? 'derivar' : o.accion || 'responder';\nif (accion === 'ofrecer_horarios' && botones.length === 0) accion = 'responder';\nif (accion === 'reservar' && !DateTime.fromISO(String(o.cita_inicio ?? '')).isValid) accion = 'responder';\n\nreturn {\n  json: {\n    accion,\n    respuesta: o.respuesta || 'Gracias por escribir 🙏 En cuanto pueda, el barbero te responde por aquí.',\n    botones,\n    nombre,\n    servicio,\n    inicio: o.cita_inicio ?? null,\n    telefono: ctx.telefono,\n    phoneNumberId: ctx.phoneNumberId,\n    mensajeOriginal: corta(original, 180),\n  },\n};"
+      },
+      "id": "e17373b7-b93a-4bd2-a1ed-d23d8ef2b9f9",
+      "name": "Prepara la respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "77b25a7d-cbeb-4297-839c-3e4eeb6980c9",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "ofrecer_horarios",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Ofrece horarios"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "76500102-92b5-4025-91b1-2a4646ac7aa3",
+                    "leftValue": "={{ $json.accion }}",
+                    "rightValue": "reservar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Reserva"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Responde"
+        }
+      },
+      "id": "0699ed95-d40a-4dd4-b54d-681c912c98bf",
+      "name": "¿Qué hace?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2400,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v23.0/{{ $json.phoneNumberId }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: $json.telefono, type: 'interactive', interactive: { type: 'button', body: { text: $json.respuesta }, action: { buttons: $json.botones } } }) }}",
+        "options": {}
+      },
+      "id": "ccfa7696-0ead-42c2-a849-cf432aba953b",
+      "name": "Envía horarios (botones)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $json.phoneNumberId }}",
+        "recipientPhoneNumber": "={{ $json.telefono }}",
+        "textBody": "={{ $json.respuesta }}",
+        "additionalFields": {}
+      },
+      "id": "e42a6b76-cf11-4aed-9c23-433d5a742bbe",
+      "name": "Responde",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2640,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0ca2745d-1320-4fb1-bf73-ae4cd0ae02a8",
+              "leftValue": "={{ $json.accion }}",
+              "rightValue": "derivar",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4b4b0d4-7338-46d3-9c59-7dc8e6e7cb4f",
+      "name": "¿Derivar al barbero?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2400,
+        860
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendTemplate",
+        "phoneNumberId": "={{ $json.phoneNumberId }}",
+        "recipientPhoneNumber": "={{ $('Datos de la barbería').first().json.telefonoBarbero }}",
+        "template": "=aviso_barbero|{{ $('Datos de la barbería').first().json.idiomaPlantillas }}",
+        "components": {
+          "component": [
+            {
+              "type": "body",
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "type": "text",
+                    "text": "Revisión"
+                  },
+                  {
+                    "type": "text",
+                    "text": "={{ $json.nombre || 'Sin nombre' }} (+{{ $json.telefono }})"
+                  },
+                  {
+                    "type": "text",
+                    "text": "={{ $json.mensajeOriginal || '-' }}"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "id": "b0f86b32-64be-4542-9750-e8e93b2cd339",
+      "name": "Avisa al barbero",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2640,
+        860
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Valida la hora pedida (futura, dentro del horario, alineada a la duración) y prepara los datos de la reserva.\nconst cfg = $('Datos de la barbería').first().json;\nconst j = $json;\nconst dur = Number(cfg.duracionMinutos) || 30;\nconst ini = DateTime.fromISO(String(j.inicio ?? ''), { setZone: true });\nconst local = ini.isValid ? ini.setZone(cfg.zonaHoraria) : ini;\n\nlet valida = false;\nif (ini.isValid && ini > DateTime.now()) {\n  let semana = {};\n  try { semana = JSON.parse(cfg.horarioSemana); } catch (e) {}\n  const dia = semana[String(local.weekday)];\n  if (Array.isArray(dia)) {\n    const aMin = (h) => { const [a, b] = String(h).split(':').map(Number); return a * 60 + b; };\n    const m = local.hour * 60 + local.minute;\n    valida = m >= aMin(dia[0]) && m + dur <= aMin(dia[1]) && (m - aMin(dia[0])) % dur === 0;\n  }\n}\nconst fin = ini.isValid ? ini.plus({ minutes: dur }) : ini;\nreturn {\n  json: {\n    valida,\n    telefono: j.telefono,\n    phoneNumberId: j.phoneNumberId,\n    nombre: j.nombre || 'Cliente',\n    servicio: j.servicio || 'Corte',\n    inicio: ini.isValid ? ini.toISO() : null,\n    inicioUtc: ini.isValid ? ini.toUTC().toISO({ suppressMilliseconds: true }) : null,\n    finUtc: fin.isValid ? fin.toUTC().toISO({ suppressMilliseconds: true }) : null,\n    inicioLegible: local.isValid ? local.setLocale('es').toFormat(\"cccc d 'de' LLLL 'a las' HH:mm\") : '',\n    // El id del documento ES la hora (UTC): si ya existe, Firestore rechaza la reserva con 409. Así nunca hay dos reservas en la misma hora.\n    docId: ini.isValid ? ini.toUTC().toFormat(\"yyyyMMdd'T'HHmm\") : null,\n  },\n};"
+      },
+      "id": "84a51653-2a62-4b34-bc91-9264dcdec45b",
+      "name": "Datos de la cita",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "46f049e9-d616-444d-bfdc-d5c9f0e8f4ab",
+              "leftValue": "={{ $json.valida }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "91355b0e-bd71-435e-86cb-dcfe8148a3ac",
+      "name": "¿Hora válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3100,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://firestore.googleapis.com/v1/projects/{{ $('Datos de la barbería').first().json.projectId }}/databases/(default)/documents/{{ $('Datos de la barbería').first().json.coleccion }}?documentId={{ $('Datos de la cita').item.json.docId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fields: { nombre: { stringValue: $('Datos de la cita').item.json.nombre }, telefono: { stringValue: $('Datos de la cita').item.json.telefono }, servicio: { stringValue: $('Datos de la cita').item.json.servicio }, inicio: { timestampValue: $('Datos de la cita').item.json.inicioUtc }, fin: { timestampValue: $('Datos de la cita').item.json.finUtc }, estado: { stringValue: 'confirmada' }, origen: { stringValue: 'whatsapp' }, creada: { timestampValue: $now.toUTC().toISO({ suppressMilliseconds: true }) } } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "054e2273-6914-4887-be8d-9ba80769640a",
+      "name": "Crea la reserva",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3320,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ea9a98ef-6909-4259-90c8-c539766f593f",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d880a2f5-1dc6-4122-943d-395a29fd723a",
+      "name": "¿Reservada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3540,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $('Datos de la cita').item.json.phoneNumberId }}",
+        "recipientPhoneNumber": "={{ $('Datos de la cita').item.json.telefono }}",
+        "textBody": "=¡Listo, {{ $('Datos de la cita').item.json.nombre }}! ✅ Tu hora con {{ $('Datos de la barbería').first().json.barbero }} quedó para el {{ $('Datos de la cita').item.json.inicioLegible }}. Te mando la ubicación para que llegues sin problema.",
+        "additionalFields": {}
+      },
+      "id": "d91941eb-aa80-4d00-a5b7-76060558e66c",
+      "name": "Confirma la reserva",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        3780,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $('Datos de la cita').item.json.phoneNumberId }}",
+        "recipientPhoneNumber": "={{ $('Datos de la cita').item.json.telefono }}",
+        "messageType": "location",
+        "longitude": "={{ $('Datos de la barbería').first().json.longitud }}",
+        "latitude": "={{ $('Datos de la barbería').first().json.latitud }}"
+      },
+      "id": "ff4dca6f-14eb-42b2-8d01-7e9da5ebac32",
+      "name": "Envía ubicación",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        4000,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "messages": {
+          "messageValues": [
+            {
+              "type": "ai",
+              "message": "=¡Listo, {{ $('Datos de la cita').item.json.nombre }}! ✅ Tu hora con {{ $('Datos de la barbería').first().json.barbero }} quedó para el {{ $('Datos de la cita').item.json.inicioLegible }}. Te mando la ubicación para que llegues sin problema."
+            }
+          ]
+        }
+      },
+      "id": "c8ceb737-20c2-4fc1-8543-9efab6797d04",
+      "name": "Anota la reserva",
+      "type": "@n8n/n8n-nodes-langchain.memoryManager",
+      "typeVersion": 1.1,
+      "position": [
+        4220,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $('Datos de la cita').item.json.phoneNumberId }}",
+        "recipientPhoneNumber": "={{ $('Datos de la cita').item.json.telefono }}",
+        "textBody": "=Uy, ese horario ya no está disponible 😅 ¿Te propongo otro?",
+        "additionalFields": {}
+      },
+      "id": "b73c7d12-5fff-430a-ab12-1f606903233e",
+      "name": "Horario ocupado",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        3780,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "messages": {
+          "messageValues": [
+            {
+              "type": "ai",
+              "message": "=Uy, ese horario ya no está disponible 😅 ¿Te propongo otro?"
+            }
+          ]
+        }
+      },
+      "id": "73abfbe3-3951-4e34-a583-44dc471f7053",
+      "name": "Anota horario ocupado",
+      "type": "@n8n/n8n-nodes-langchain.memoryManager",
+      "typeVersion": 1.1,
+      "position": [
+        4000,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Datos de la cita').item.json.telefono }}",
+        "contextWindowLength": 12
+      },
+      "id": "83723735-1b31-4fab-914e-242c17567789",
+      "name": "Memoria (reservas)",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        4120,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "f12fa632-40e0-4258-9eb7-9a06fe85b9b5",
+      "name": "Cada mañana 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        1260
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "147181a4-919c-442f-9c10-3316ed6811bd",
+              "name": "barbero",
+              "value": "Carlos",
+              "type": "string"
+            },
+            {
+              "id": "972c12a8-6d4c-469e-9782-304132729d35",
+              "name": "phoneNumberId",
+              "value": "TU_PHONE_NUMBER_ID",
+              "type": "string"
+            },
+            {
+              "id": "bf27ddd2-2216-4f2f-8af6-b2160d9d06a9",
+              "name": "zonaHoraria",
+              "value": "America/Mexico_City",
+              "type": "string"
+            },
+            {
+              "id": "9bef9fd5-f76a-43a6-86f1-2d877908e637",
+              "name": "idiomaPlantillas",
+              "value": "es",
+              "type": "string"
+            },
+            {
+              "id": "95c83833-3694-457d-b998-ce5481cf5ee8",
+              "name": "projectId",
+              "value": "TU_PROJECT_ID_DE_FIREBASE",
+              "type": "string"
+            },
+            {
+              "id": "7259b137-30da-4ddf-9188-b25d39a476d3",
+              "name": "coleccion",
+              "value": "reservas",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "9e628578-acfc-4235-9a8d-a5d69c0d02f0",
+      "name": "Datos de la barbería (mañana)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        1260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://firestore.googleapis.com/v1/projects/{{ $('Datos de la barbería (mañana)').first().json.projectId }}/databases/(default)/documents:runQuery",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ structuredQuery: { from: [{ collectionId: $('Datos de la barbería (mañana)').first().json.coleccion }], where: { compositeFilter: { op: 'AND', filters: [{ fieldFilter: { field: { fieldPath: 'inicio' }, op: 'GREATER_THAN_OR_EQUAL', value: { timestampValue: $now.setZone($('Datos de la barbería (mañana)').first().json.zonaHoraria).plus({ days: 1 }).startOf('day').toUTC().toISO({ suppressMilliseconds: true }) } } }, { fieldFilter: { field: { fieldPath: 'inicio' }, op: 'LESS_THAN_OR_EQUAL', value: { timestampValue: $now.setZone($('Datos de la barbería (mañana)').first().json.zonaHoraria).plus({ days: 1 }).endOf('day').toUTC().toISO({ suppressMilliseconds: true }) } } }] } }, orderBy: [{ field: { fieldPath: 'inicio' }, direction: 'ASCENDING' }] } }) }}",
+        "options": {}
+      },
+      "id": "b288cd5d-ecbb-4234-9e20-0dbc23e4307e",
+      "name": "Reservas de mañana",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        1260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Un recordatorio por reserva de mañana. runQuery devuelve un item por documento (o uno vacío si no hay ninguno).\nconst cfg = $('Datos de la barbería (mañana)').first().json;\nconst out = [];\nfor (const { json: r } of $input.all()) {\n  const f = r.document?.fields;\n  if (!f || f.estado?.stringValue === 'cancelada') continue;\n  const tel = String(f.telefono?.stringValue ?? '').replace(/\\D/g, '');\n  if (tel.length < 8 || !f.inicio?.timestampValue) continue;\n  const hora = DateTime.fromISO(f.inicio.timestampValue, { setZone: true }).setZone(cfg.zonaHoraria).toFormat('HH:mm');\n  out.push({ json: { telefono: tel, nombre: f.nombre?.stringValue || 'Hola', hora } });\n}\nreturn out;"
+      },
+      "id": "6b48e1f7-01fe-4e02-8aa7-7b5c49918445",
+      "name": "Prepara recordatorios",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        1260
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendTemplate",
+        "phoneNumberId": "={{ $('Datos de la barbería (mañana)').first().json.phoneNumberId }}",
+        "recipientPhoneNumber": "={{ $json.telefono }}",
+        "template": "=recordatorio_cita|{{ $('Datos de la barbería (mañana)').first().json.idiomaPlantillas }}",
+        "components": {
+          "component": [
+            {
+              "type": "body",
+              "bodyParameters": {
+                "parameter": [
+                  {
+                    "type": "text",
+                    "text": "={{ $json.nombre }}"
+                  },
+                  {
+                    "type": "text",
+                    "text": "={{ $json.hora }}"
+                  },
+                  {
+                    "type": "text",
+                    "text": "={{ $('Datos de la barbería (mañana)').first().json.barbero }}"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "id": "117d796d-fbf8-4b54-91ea-39e2468788ea",
+      "name": "Envía recordatorio",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        1260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1 · Escucha\nCada mensaje de WhatsApp entra aquí. Los audios se transcriben con Whisper; un toque en un botón de horario va directo a reservar.",
+        "height": 520,
+        "width": 1680,
+        "color": 5
+      },
+      "id": "ea116d33-a71e-4ccb-b080-7bf3277cc310",
+      "name": "Nota 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2 · Entiende\nClaude entiende qué hora quiere el cliente y consulta Firestore (reservas ya tomadas) antes de ofrecer horarios.",
+        "height": 740,
+        "width": 700,
+        "color": 3
+      },
+      "id": "ad294c70-7a11-4564-87d5-ff66061e131e",
+      "name": "Nota 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1620,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3 · Reserva\nOfrece horarios con botones. Al elegir uno valida la hora y crea la reserva en Firestore con el id = hora (si ya existe, la rechaza). Confirma y manda la ubicación. Los casos especiales avisan al barbero.",
+        "height": 1100,
+        "width": 2180,
+        "color": 4
+      },
+      "id": "47f7c1d6-0435-48c3-92ab-2f63f0cbb50b",
+      "name": "Nota 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2340,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4 · Recordatorios\nCada mañana a las 08:00: recordatorio por WhatsApp a quien tiene reserva mañana.",
+        "height": 500,
+        "width": 1180,
+        "color": 6
+      },
+      "id": "40584716-1daf-45a9-9c60-f56dc894163c",
+      "name": "Nota 4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Antes de activar\n1. Llena **Datos de la barbería** (projectId de Firebase, horarioSemana, duración, teléfono del barbero) y **Datos de la barbería (mañana)**.\n2. Credenciales: WhatsApp API de Meta (nodos WhatsApp y HTTP Request de audio y botones), WhatsApp OAuth (trigger), OpenAI (Transcribe audio), Anthropic (Claude) y **Google Service Account** con el scope https://www.googleapis.com/auth/datastore en *Disponibilidad*, *Crea la reserva* y *Reservas de mañana*.\n3. La colección debe usar estos campos: nombre, telefono, servicio, inicio (timestamp), fin (timestamp), estado, origen, creada. Ajusta los nombres si tu base usa otros.\n4. Crea y aprueba en Meta las plantillas *aviso_barbero* y *recordatorio_cita* (textos en el README).\n5. Publica el flujo (**Publish**).",
+        "height": 460,
+        "width": 1000,
+        "color": 7
+      },
+      "id": "5be21bee-3139-4df5-9278-0fd6119ff26f",
+      "name": "Nota configuración",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -420
+      ]
+    }
+  ],
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Datos de la barbería",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datos de la barbería": {
+      "main": [
+        [
+          {
+            "node": "Lee el mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lee el mensaje": {
+      "main": [
+        [
+          {
+            "node": "Tipo de mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo de mensaje": {
+      "main": [
+        [
+          {
+            "node": "Datos de la cita",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Obtén el audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recepcionista IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtén el audio": {
+      "main": [
+        [
+          {
+            "node": "Descarga el audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descarga el audio": {
+      "main": [
+        [
+          {
+            "node": "Nombra el audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nombra el audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribe audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe audio": {
+      "main": [
+        [
+          {
+            "node": "Recepcionista IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Recepcionista IA",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memoria": {
+      "ai_memory": [
+        [
+          {
+            "node": "Recepcionista IA",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disponibilidad": {
+      "ai_tool": [
+        [
+          {
+            "node": "Recepcionista IA",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formato de respuesta": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Recepcionista IA",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recepcionista IA": {
+      "main": [
+        [
+          {
+            "node": "Prepara la respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara la respuesta": {
+      "main": [
+        [
+          {
+            "node": "¿Qué hace?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Derivar al barbero?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Qué hace?": {
+      "main": [
+        [
+          {
+            "node": "Envía horarios (botones)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Datos de la cita",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responde",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Derivar al barbero?": {
+      "main": [
+        [
+          {
+            "node": "Avisa al barbero",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datos de la cita": {
+      "main": [
+        [
+          {
+            "node": "¿Hora válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hora válida?": {
+      "main": [
+        [
+          {
+            "node": "Crea la reserva",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Horario ocupado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crea la reserva": {
+      "main": [
+        [
+          {
+            "node": "¿Reservada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Reservada?": {
+      "main": [
+        [
+          {
+            "node": "Confirma la reserva",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Horario ocupado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirma la reserva": {
+      "main": [
+        [
+          {
+            "node": "Envía ubicación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envía ubicación": {
+      "main": [
+        [
+          {
+            "node": "Anota la reserva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Horario ocupado": {
+      "main": [
+        [
+          {
+            "node": "Anota horario ocupado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memoria (reservas)": {
+      "ai_memory": [
+        [
+          {
+            "node": "Anota la reserva",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Anota horario ocupado",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada mañana 08:00": {
+      "main": [
+        [
+          {
+            "node": "Datos de la barbería (mañana)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datos de la barbería (mañana)": {
+      "main": [
+        [
+          {
+            "node": "Reservas de mañana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservas de mañana": {
+      "main": [
+        [
+          {
+            "node": "Prepara recordatorios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara recordatorios": {
+      "main": [
+        [
+          {
+            "node": "Envía recordatorio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Mexico_City",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

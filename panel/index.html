@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reservas · Barbería</title>
+<style>
+  :root { --bg:#f6f6f4; --fg:#1c1c1c; --card:#fff; --line:#e2e2de; --acc:#1f6f4a; --bad:#b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141414; --fg:#eee; --card:#1e1e1e; --line:#333; --acc:#5cc79a; --bad:#ff8a80; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:640px; margin:0 auto; padding:16px; }
+  h1 { font-size:1.3rem; margin:8px 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:10px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  input, button { font:inherit; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
+  input { flex:1; min-width:0; }
+  button { cursor:pointer; }
+  button.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
+  button.danger { color:var(--bad); }
+  .hora { font-weight:700; font-size:1.1rem; min-width:3.5rem; }
+  .meta { color:#888; font-size:.9rem; }
+  .grow { flex:1; min-width:0; }
+  .tag { font-size:.75rem; border:1px solid var(--line); border-radius:99px; padding:1px 8px; }
+  #msg { color:var(--bad); min-height:1.2em; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="login" hidden>
+    <h1>Entrar al panel</h1>
+    <form class="card" id="loginForm">
+      <div class="row"><input id="email" type="email" placeholder="Correo" autocomplete="username" required></div>
+      <div class="row" style="margin-top:8px"><input id="pass" type="password" placeholder="Contraseña" autocomplete="current-password" required></div>
+      <div class="row" style="margin-top:8px"><button class="primary" type="submit">Entrar</button></div>
+    </form>
+  </section>
+
+  <section id="app" hidden>
+    <div class="row" style="justify-content:space-between"><h1>Reservas</h1><button id="salir">Salir</button></div>
+    <div class="row card">
+      <button id="ayer" aria-label="Día anterior">‹</button>
+      <input id="dia" type="date">
+      <button id="manana" aria-label="Día siguiente">›</button>
+    </div>
+    <div id="lista"></div>
+    <h2 style="font-size:1rem">Bloquear una hora</h2>
+    <form class="card row" id="bloqueo">
+      <input id="bloqueoHora" type="time" step="1800" required>
+      <button type="submit">Bloquear</button>
+    </form>
+  </section>
+  <p id="msg" role="status"></p>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
